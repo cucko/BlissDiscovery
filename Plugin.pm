@@ -29,6 +29,15 @@ my $prefs = preferences('plugin.blissdiscovery');
 use constant MAX_TILES     => 12;
 use constant HOME_EXTRA_ID => 'blissdiscovery';
 
+# Material's "More" button on a section shows this many times the normal
+# number of tiles.
+use constant MORE_FACTOR => 3;
+
+# Material never asks for more than this many items for a home-screen row
+# (MAX_HOME_EXTRA_ROW in its JS); the "More" button asks for a lot more, which
+# is how we tell the two apart.
+use constant HOME_ROW_MAX => 30;
+
 # Tile sets, keyed by library id ('' = whole library). Each value is an
 # arrayref of tiles: { trackid, title, artist, genre, genreid, coverid }
 my %tileSets = ();
@@ -114,6 +123,8 @@ sub _registerWithMaterial {
 		subtitle    => 'PLUGIN_BLISSDISCOVERY_HOME_SUBTITLE',
 		icon        => 'MTL_icon_auto_awesome',
 		needsPlayer => $needsPlayer,
+		# Lower bound for the quantity Material asks us for - must stay below
+		# HOME_ROW_MAX so that a "More" request is still recognisable.
 		count       => MAX_TILES + 1,
 		handler     => \&_homeExtraHandler,
 	});
@@ -122,29 +133,29 @@ sub _registerWithMaterial {
 	main::INFOLOG && $log->info('Registered home-screen section with Material Skin');
 }
 
-# Called by Material Skin when it builds the home screen. Must call $cb with a
-# SlimBrowse-style result: { item_loop => [...], count => N, offset => 0 }
+# Called by Material Skin when it builds the home screen, and again (with a
+# much larger quantity) when the user presses the section's "More" button.
+# Must call $cb with a SlimBrowse-style result:
+# { item_loop => [...], count => N, offset => 0 }
 sub _homeExtraHandler {
 	my ($client, $cb, $args) = @_;
 
-	my $lib   = _effectiveLibrary($client);
-	my $tiles = _tilesFor($lib);
+	my $lib      = _effectiveLibrary($client);
+	my $numTiles = $prefs->get('numTiles') || 6;
+	my $quantity = $args && $args->{quantity} ? $args->{quantity} : 0;
+
+	# "More" was pressed: show MORE_FACTOR times as many tiles
+	my $isMore = $quantity > HOME_ROW_MAX;
+	my $want   = $isMore ? $numTiles * MORE_FACTOR : $numTiles;
+
+	my $tiles = _tilesFor( $lib, $want );
+	my $shown = @$tiles < $want ? scalar @$tiles : $want;
 
 	my @items;
 
-	push @items, {
-		text      => string('PLUGIN_BLISSDISCOVERY_REGENERATE'),
-		'icon-id' => 'MTL_icon_refresh',
-		actions   => {
-			go => {
-				cmd => [ 'blissdiscovery', 'refresh' ],
-			},
-		},
-	};
-
 	my $idx = 0;
 
-	for my $tile (@$tiles) {
+	for my $tile ( @$tiles[ 0 .. $shown - 1 ] ) {
 		my $subtitle = $tile->{artist} || '';
 		$subtitle .= ( $subtitle ? " - " : '' ) . $tile->{genre} if $tile->{genre};
 
@@ -161,9 +172,30 @@ sub _homeExtraHandler {
 		$idx++;
 	}
 
+	push @items, {
+		text      => string('PLUGIN_BLISSDISCOVERY_REGENERATE'),
+		'icon-id' => 'MTL_icon_refresh',
+		actions   => {
+			go => {
+				cmd => [ 'blissdiscovery', 'refresh' ],
+			},
+		},
+	};
+
+	# Material only draws the "More" button when the reported count is greater
+	# than the number of items it asked for, so on the home row claim the whole
+	# expanded set (and at least one more than was asked for). On the "More"
+	# page the count has to match what we return, or Material keeps paging.
+	my $count = scalar @items;
+
+	if ( !$isMore ) {
+		my $available = $numTiles * MORE_FACTOR + 1;   # tiles + "Regenerate"
+		$count = $available > $quantity ? $available : $quantity + 1;
+	}
+
 	$cb->({
 		item_loop => \@items,
-		count     => scalar @items,
+		count     => $count,
 		offset    => 0,
 	});
 }
@@ -329,18 +361,27 @@ sub _effectiveLibrary {
 	return Slim::Music::VirtualLibraries->getRealId($pref) || '';
 }
 
-# Return (creating if needed) the tile set for a library
+# Return the tile set for a library, growing it to $want tiles if needed.
+# Tiles are only ever appended, so tile indices stay valid.
 sub _tilesFor {
-	my $lib = shift;
+	my ($lib, $want) = @_;
 	$lib = '' unless defined $lib;
 
-	if ( !$tileSets{$lib} ) {
-		my $n = $prefs->get('numTiles') || 6;
-		$tileSets{$lib} = [ _pickTracks( $n, {}, $lib ) ];
-		main::INFOLOG && $log->info( sprintf( "Built %d tiles for library '%s'", scalar @{ $tileSets{$lib} }, $lib ) );
+	my $n = $prefs->get('numTiles') || 6;
+	$want = $n unless $want && $want > $n;
+	$want = $n * MORE_FACTOR if $want > $n * MORE_FACTOR;
+
+	my $tiles = $tileSets{$lib} ||= [];
+
+	if ( @$tiles < $want ) {
+		my %genres = map { $_->{genreid} ? ( $_->{genreid} => 1 ) : () } @$tiles;
+		my %tracks = map { $_->{trackid} => 1 } @$tiles;
+
+		push @$tiles, _pickTracks( $want - @$tiles, \%genres, $lib, \%tracks );
+		main::INFOLOG && $log->info( sprintf( "Tile set for library '%s' now has %d tiles (wanted %d)", $lib, scalar @$tiles, $want ) );
 	}
 
-	return $tileSets{$lib};
+	return $tiles;
 }
 
 # Keep only the track ids that are part of the given library, preserving order
@@ -367,10 +408,12 @@ sub _filterToLibrary {
 # ---------------------------------------------------------------------------
 
 # Pick up to $n tracks, each from a different genre. $exclude is a hashref of
-# genre ids that must not be used. $lib restricts to a virtual library.
+# genre ids that must not be used, $skip an optional hashref of track ids to
+# leave out. $lib restricts to a virtual library.
 sub _pickTracks {
-	my ($n, $exclude, $lib) = @_;
-	$lib = '' unless defined $lib;
+	my ($n, $exclude, $lib, $skip) = @_;
+	$lib  = '' unless defined $lib;
+	$skip = {} unless defined $skip;
 
 	my @picked;
 	my $dbh = Slim::Schema->dbh;
@@ -387,6 +430,7 @@ sub _pickTracks {
 
 		my $track = _randomTrack( $genreId, $lib );
 		next unless $track;
+		next if $skip->{ $track->id };
 
 		my $tile = _tileFromTrack( $track, $genreId );
 		next unless $tile;
@@ -400,6 +444,7 @@ sub _pickTracks {
 	while ( @picked < $n && $guard++ < $n * 3 ) {
 		my $track = _randomTrack( undef, $lib );
 		last unless $track;
+		next if $skip->{ $track->id };
 		next if grep { $_->{trackid} == $track->id } @picked;
 		my $tile = _tileFromTrack( $track, undef );
 		push @picked, $tile if $tile;
@@ -465,7 +510,8 @@ sub _replaceTile {
 	return unless defined $tiles->[$idx];
 
 	my %exclude = map { $_->{genreid} ? ( $_->{genreid} => 1 ) : () } @$tiles;
-	my ($new) = _pickTracks( 1, \%exclude, $lib );
+	my %tracks  = map { $_->{trackid} => 1 } @$tiles;
+	my ($new) = _pickTracks( 1, \%exclude, $lib, \%tracks );
 	return unless $new;
 
 	$tiles->[$idx] = $new;

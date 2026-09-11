@@ -69,6 +69,11 @@ Tile changes are pushed to Material live (no page reload needed).
   `Plugins::MaterialSkin::Plugin->registerHomeExtra`. Material asks for the
   items when it draws the home screen; each item carries the track's cover
   (`music/<coverid>/cover.jpg`) and a `go` action `blissdiscovery playlist play tile:N`.
+* The section shows "Number of tiles" tiles. Pressing Material's **More**
+  button on the section header opens a page with **3×** that many tiles — the
+  extra ones are picked on demand (again one per genre, genres/songs already
+  shown are skipped) and appended, so the tiles already on the home row keep
+  their place.
 * Tapping runs that command on the current player. The plugin calls
   `blissmixer mix track_id:<id> count:<n>` (the Bliss Mixer plugin does all
   the mixing), loads the returned tracks with the seed song first, optionally

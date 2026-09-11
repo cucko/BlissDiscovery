@@ -533,13 +533,15 @@ sub _pickTracks {
 	return @picked;
 }
 
-# Random local audio track, optionally within a genre and/or library
+# Random local audio track, optionally within a genre and/or library.
+# Cue-sheet sub-tracks (url 'file:...#<start>-<end>') are included - both
+# bliss-analyser and Bliss Mixer handle them.
 sub _randomTrack {
 	my ($genreId, $lib) = @_;
 	my $dbh = Slim::Schema->dbh;
 
 	my @joins;
-	my @where = ( "t.audio = 1", "t.remote = 0", "t.url LIKE 'file:%'", "t.url NOT LIKE '%#%'" );
+	my @where = ( "t.audio = 1", "t.remote = 0", "t.url LIKE 'file:%'" );
 	my @bind;
 
 	if ( defined $genreId ) {
@@ -564,7 +566,7 @@ sub _randomTrack {
 sub _tileFromTrack {
 	my ($track, $genreId) = @_;
 
-	return undef unless $track && $track->url =~ /^file:/ && $track->url !~ /#/;
+	return undef unless $track && $track->url =~ /^file:/;
 
 	my $genreName = '';
 	my $genre = defined $genreId ? Slim::Schema->find( 'Genre', $genreId ) : eval { $track->genre };

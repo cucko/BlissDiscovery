@@ -110,6 +110,8 @@ so the tiles swap over straight away. The section's **More** page does not send
 * Songs are picked from the LMS library, not from the Bliss analysis DB. If a
   picked song was never analysed, Bliss returns no tracks and you'll see an
   error toast — just tap another tile or refresh.
-* Only local (`file://`) tracks are used; cue-sheet sub-tracks are skipped.
+* Only local (`file://`) tracks are used. Cue-sheet sub-tracks are included -
+  bliss-analyser analyses them and Bliss Mixer maps them to and from its own
+  `<file>.CUE_TRACK.<n>` paths.
 * If the Material Skin plugin isn't installed you'll get a warning in the
   server log and no tiles.

@@ -350,9 +350,9 @@ sub _appMenu {
 }
 
 # Selecting a tile: run the same "blissdiscovery playlist play" CLI command
-# the Material Skin section uses (so DSTM, tile replacement, and the Material
-# toast all still happen), then stay on the tile list - nothing new is shown,
-# the mix just starts on the current player.
+# the Material Skin section uses (so DSTM and tile replacement still happen),
+# then stay on the tile list - nothing new is shown, the mix just starts on
+# the current player.
 sub _appMenuPlay {
 	my ($idx, $lib, $client, $cb, $args) = @_;
 
@@ -489,8 +489,6 @@ sub _loadMix {
 		$client->execute( [ 'playerpref', 'plugin.dontstopthemusic:provider', 'BLISSMIXER_DSTM' ] );
 		$client->execute( [ 'playlist', 'repeat', '0' ] );
 	}
-
-	# _materialNotify( 'info', sprintf( string('PLUGIN_BLISSDISCOVERY_STARTED'), $tile->{title}, $tile->{artist} ), $client );
 
 	$request->addResult( 'count', scalar @ids );
 	$request->setStatusDone();

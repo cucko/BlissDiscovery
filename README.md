@@ -86,8 +86,8 @@ Tile changes are pushed to Material live (no page reload needed).
   their place.
 * Tapping runs that command on the current player. The plugin calls
   `blissmixer mix track_id:<id> count:<n>` (the Bliss Mixer plugin does all
-  the mixing), loads the returned tracks with the seed song first, optionally
-  switches DSTM to Bliss, and shows a Material toast.
+  the mixing), loads the returned tracks with the seed song first, and
+  optionally switches DSTM to Bliss.
 * The same tiles are exposed as a **Bliss Discovery** entry under **My Apps**
   via `Slim::Plugin::OPMLBased` (`menu => 'apps'`), so any skin or player UI
   that browses the apps menu can reach them, tapping a tile there runs the

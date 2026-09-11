@@ -300,8 +300,10 @@ sub _homeExtraHandler {
 # skin, Jive/SqueezePlay, Material's own apps browser, Squeezer, ...) is
 # guaranteed to invoke when an item is picked. Each item's own `nextWindow`
 # (not the url handler's response - that's too late, the client has already
-# navigated by then) tells the client what to do once url resolves instead
-# of showing the window it returns, so tapping never drills down a level.
+# navigated by then) tells the client what to do once url resolves. This
+# has to be 'refresh' (re-fetch this same list via _appMenu), not 'parent'
+# (which pops past this list back to whatever showed it, e.g. "My Apps") -
+# tapping a tile must leave the client on the Bliss Discovery list.
 # Unlike the Material home row (capped to "Number of tiles" tiles), the My
 # Apps menu isn't space constrained, so it shows the full expanded set - the
 # same one Material's "More" button would reveal.
@@ -327,14 +329,14 @@ sub _appMenu {
 			url        => sub { _appMenuPlay( $i, $lib, @_ ); },
 			# Tells the client what to do once url resolves, instead of
 			# pushing/showing the (empty) window it returns - same convention
-			# as the Regenerate item on the Material home row.
-			nextWindow => 'parent',
+			# as the Regenerate item below (and the Material home row).
+			nextWindow => 'refresh',
 		};
 	}
 
 	push @items, {
 		name       => string('PLUGIN_BLISSDISCOVERY_REGENERATE'),
-		icon       => 'MTL_icon_auto_awesome',
+		icon       => 'MTL_icon_refresh',
 		type       => 'link',
 		url        => \&_appMenuRefresh,
 		nextWindow => 'refresh',
@@ -349,13 +351,13 @@ sub _appMenu {
 
 # Selecting a tile: run the same "blissdiscovery playlist play" CLI command
 # the Material Skin section uses (so DSTM, tile replacement, and the Material
-# toast all still happen), then pop straight back to the tile list - nothing
-# new is shown, the mix just starts on the current player.
+# toast all still happen), then stay on the tile list - nothing new is shown,
+# the mix just starts on the current player.
 sub _appMenuPlay {
 	my ($idx, $lib, $client, $cb, $args) = @_;
 
 	if ( !$client ) {
-		$cb->({ items => [], nextWindow => 'parent' });
+		$cb->({ items => [], nextWindow => 'refresh' });
 		return;
 	}
 
@@ -365,7 +367,7 @@ sub _appMenuPlay {
 	my $req = Slim::Control::Request::executeRequest( $client, \@cmd );
 
 	my $respond = sub {
-		$cb->({ items => [], nextWindow => 'parent' });
+		$cb->({ items => [], nextWindow => 'refresh' });
 	};
 
 	if ( $req && $req->isStatusProcessing ) {
@@ -488,7 +490,7 @@ sub _loadMix {
 		$client->execute( [ 'playlist', 'repeat', '0' ] );
 	}
 
-	_materialNotify( 'info', sprintf( string('PLUGIN_BLISSDISCOVERY_STARTED'), $tile->{title}, $tile->{artist} ), $client );
+	# _materialNotify( 'info', sprintf( string('PLUGIN_BLISSDISCOVERY_STARTED'), $tile->{title}, $tile->{artist} ), $client );
 
 	$request->addResult( 'count', scalar @ids );
 	$request->setStatusDone();

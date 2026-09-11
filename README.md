@@ -9,6 +9,12 @@ Requires:
 * **Material Skin** (recent version with third-party home-screen sections)
 * **Bliss Mixer** plugin, with your library analysed by bliss-analyser
 
+## Screenshots
+
+| Home screen section | Enabling in Material Skin | Plugin settings |
+|---|---|---|
+| ![Bliss Discovery home section](HTML/EN/plugins/BlissDiscovery/html/images/screenshots/HomeSection.png) | ![Enabling the scrollable list](HTML/EN/plugins/BlissDiscovery/html/images/screenshots/ScrollableItems.png) | ![Plugin settings page](HTML/EN/plugins/BlissDiscovery/html/images/screenshots/Settings.png) |
+
 ## Install
 
 1. Stop LMS.

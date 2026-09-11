@@ -17,6 +17,7 @@ use Slim::Utils::Strings qw(string cstring);
 use Slim::Utils::Timers;
 use Slim::Control::Request;
 use Slim::Music::VirtualLibraries;
+use List::Util ();
 
 my $log = Slim::Utils::Log->addLogCategory({
 	category     => 'plugin.blissdiscovery',
@@ -42,8 +43,15 @@ use constant HOME_ROW_MAX => 30;
 use constant MATERIAL_ALL_LIB => '-1';
 
 # Tile sets, keyed by library id ('' = whole library). Each value is an
-# arrayref of tiles: { trackid, title, artist, genre, genreid, coverid }
+# arrayref of tiles: { trackid, title, artist, genre, genreid, coverid, bucket }
+# 'bucket' is the genre slot the tile occupies - an LMS genre or a Bliss Mixer
+# genre group, depending on the genreSource setting - so that no two tiles in
+# a set share one.
 my %tileSets = ();
+
+# Bliss Mixer's genre groups resolved to LMS genre ids, rebuilt on each tile
+# refresh (see _blissGenreGroups)
+my $blissGroups;
 my $registeredWithMaterial = 0;
 
 # Library last chosen with Material Skin's "Change Library" button, keyed by
@@ -69,6 +77,7 @@ sub initPlugin {
 		refreshAfterPlay => 1,
 		refreshHours     => 24,
 		library          => '',     # '' = all music, 'material' = Material Skin's Change Library, 'player' = player's library view, else a virtual library id
+		genreSource      => 'lms',  # 'lms' = one tile per LMS genre, 'bliss' = one tile per Bliss Mixer genre group
 	});
 
 	$prefs->setValidate({ validator => 'intlimit', low => 1, high => MAX_TILES }, 'numTiles');
@@ -76,6 +85,7 @@ sub initPlugin {
 	$prefs->setValidate({ validator => 'intlimit', low => 0, high => 720 },       'refreshHours');
 
 	$prefs->setChange(sub { refreshTiles(); },   'numTiles');
+	$prefs->setChange(sub { refreshTiles(); },   'genreSource');
 	$prefs->setChange(sub { $registeredWithMaterial = 0; refreshTiles(); }, 'library');
 	$prefs->setChange(sub { _scheduleTimer(); }, 'refreshHours');
 
@@ -402,7 +412,8 @@ sub refreshTiles {
 	_registerWithMaterial();
 
 	# Drop everything; sets are rebuilt on demand (immediately for the default set)
-	%tileSets = ();
+	%tileSets    = ();
+	$blissGroups = undef;
 	my $tiles = _tilesFor( _effectiveLibrary(undef) );
 
 	main::INFOLOG && $log->info( sprintf( 'Picked %d tiles', scalar @$tiles ) );
@@ -454,10 +465,10 @@ sub _tilesFor {
 	my $tiles = $tileSets{$lib} ||= [];
 
 	if ( @$tiles < $want ) {
-		my %genres = map { $_->{genreid} ? ( $_->{genreid} => 1 ) : () } @$tiles;
-		my %tracks = map { $_->{trackid} => 1 } @$tiles;
+		my %buckets = map { $_->{bucket} ? ( $_->{bucket} => 1 ) : () } @$tiles;
+		my %tracks  = map { $_->{trackid} => 1 } @$tiles;
 
-		push @$tiles, _pickTracks( $want - @$tiles, \%genres, $lib, \%tracks );
+		push @$tiles, _pickTracks( $want - @$tiles, \%buckets, $lib, \%tracks );
 		main::INFOLOG && $log->info( sprintf( "Tile set for library '%s' now has %d tiles (wanted %d)", $lib, scalar @$tiles, $want ) );
 	}
 
@@ -487,67 +498,163 @@ sub _filterToLibrary {
 # Tile selection
 # ---------------------------------------------------------------------------
 
-# Pick up to $n tracks, each from a different genre. $exclude is a hashref of
-# genre ids that must not be used, $skip an optional hashref of track ids to
-# leave out. $lib restricts to a virtual library.
+# Pick up to $n tracks, each from a different bucket (see _buckets). $exclude
+# is a hashref of bucket keys that must not be used (it is updated with the
+# ones taken), $skip an optional hashref of track ids to leave out. $lib
+# restricts to a virtual library.
 sub _pickTracks {
 	my ($n, $exclude, $lib, $skip) = @_;
 	$lib  = '' unless defined $lib;
 	$skip = {} unless defined $skip;
 
 	my @picked;
-	my $dbh = Slim::Schema->dbh;
 
-	# Genres (that actually have tracks in the chosen library), random order
-	my $genreSql = $lib ne ''
-		? "SELECT DISTINCT gt.genre FROM genre_track gt JOIN library_track lt ON lt.track = gt.track WHERE lt.library = ? ORDER BY RANDOM()"
-		: "SELECT id FROM genres ORDER BY RANDOM()";
-	my @genreIds = map { $_->[0] } @{ $dbh->selectall_arrayref( $genreSql, undef, ( $lib ne '' ? ($lib) : () ) ) || [] };
-
-	for my $genreId (@genreIds) {
+	for my $bucket ( _buckets($lib) ) {
 		last if @picked >= $n;
-		next if $exclude->{$genreId};
+		next if $exclude->{ $bucket->{key} };
 
-		my $track = _randomTrack( $genreId, $lib );
+		my ($track, $genreId) = _randomTrack( $bucket->{genreids}, $lib );
 		next unless $track;
 		next if $skip->{ $track->id };
 
-		my $tile = _tileFromTrack( $track, $genreId );
+		my $tile = _tileFromTrack( $track, $genreId, $bucket->{key} );
 		next unless $tile;
 
 		push @picked, $tile;
-		$exclude->{$genreId} = 1;
+		$exclude->{ $bucket->{key} } = 1;
 	}
 
-	# Not enough genres with usable tracks: fill up with random tracks.
+	# Not enough buckets with usable tracks: fill up with random tracks.
 	my $guard = 0;
 	while ( @picked < $n && $guard++ < $n * 3 ) {
-		my $track = _randomTrack( undef, $lib );
+		my ($track) = _randomTrack( undef, $lib );
 		last unless $track;
 		next if $skip->{ $track->id };
 		next if grep { $_->{trackid} == $track->id } @picked;
-		my $tile = _tileFromTrack( $track, undef );
+		my $tile = _tileFromTrack( $track, undef, undef );
 		push @picked, $tile if $tile;
 	}
 
 	return @picked;
 }
 
-# Random local audio track, optionally within a genre and/or library.
+# The genre slots tiles are drawn from, in random order. Each is
+# { key => <unique string>, genreids => [ LMS genre ids ] }.
+# With genreSource 'lms' every genre that has tracks in the library is a
+# bucket; with 'bliss' every Bliss Mixer genre group is one.
+sub _buckets {
+	my $lib = shift;
+	my $dbh = Slim::Schema->dbh;
+
+	if ( ( $prefs->get('genreSource') || 'lms' ) eq 'bliss' ) {
+		my $groups = _blissGenreGroups();
+
+		if ( @$groups ) {
+			return List::Util::shuffle(
+				map { { key => "b$_", genreids => $groups->[$_]->{genreids} } }
+				grep { @{ $groups->[$_]->{genreids} } } 0 .. $#$groups
+			);
+		}
+
+		$log->warn('Bliss Mixer has no genre groups defined - using LMS genres instead');
+	}
+
+	my $sql = $lib ne ''
+		? "SELECT DISTINCT gt.genre FROM genre_track gt JOIN library_track lt ON lt.track = gt.track WHERE lt.library = ? ORDER BY RANDOM()"
+		: "SELECT id FROM genres ORDER BY RANDOM()";
+
+	return map { { key => "g$_->[0]", genreids => [ $_->[0] ] } }
+		@{ $dbh->selectall_arrayref( $sql, undef, ( $lib ne '' ? ($lib) : () ) ) || [] };
+}
+
+# Bliss Mixer's genre groups (Settings > Bliss Mixer > Genre groups), resolved
+# to LMS genre ids: [ { name => 'Rock; Metal', genreids => [...] }, ... ].
+# Mirrors how Bliss Mixer reads its own setting: one group per line, names
+# separated by ';', each name a case-insensitive glob ('* Rock', 'Pop', ...).
+# With Bliss's "use track genre" option on, every genre not covered by a group
+# becomes a group of its own, as it does for Bliss's filtering.
+sub _blissGenreGroups {
+	return $blissGroups if $blissGroups;
+
+	my $bliss  = preferences('plugin.blissmixer');
+	my $dbh    = Slim::Schema->dbh;
+	my @genres = @{ $dbh->selectall_arrayref("SELECT id, name FROM genres WHERE name IS NOT NULL") || [] };
+
+	my @groups;
+	my %covered;
+
+	for my $line ( split /\n/, ( $bliss->get('genre_groups') || '' ) ) {
+		my @names;
+		for my $name ( split /;/, $line ) {
+			$name =~ s/^\s+//;
+			$name =~ s/\s+$//;
+			push @names, $name if length $name;
+		}
+		next unless @names;
+
+		my %ids;
+		for my $name (@names) {
+			my $re = _globToRegex($name);
+			for my $g (@genres) {
+				next unless lc( $g->[1] ) =~ $re;
+				$ids{ $g->[0] } = 1;
+				$covered{ $g->[0] } = 1;
+			}
+		}
+
+		push @groups, { name => join( '; ', @names ), genreids => [ sort { $a <=> $b } keys %ids ] };
+	}
+
+	if ( $bliss->get('use_track_genre') ) {
+		push @groups, map { { name => $_->[1], genreids => [ $_->[0] ] } }
+			grep { !$covered{ $_->[0] } } @genres;
+	}
+
+	main::INFOLOG && $log->info( sprintf( 'Resolved %d Bliss genre group(s), %d with matching LMS genres',
+		scalar @groups, scalar grep { @{ $_->{genreids} } } @groups ) );
+
+	return $blissGroups = \@groups;
+}
+
+# Case-insensitive regex for a Bliss genre-group glob: * ? [...] {a,b}
+sub _globToRegex {
+	my $glob = lc shift;
+	my $re   = '';
+
+	while ( $glob =~ /\G(\*|\?|\[!?[^\]]*\]|\{[^}]*\}|[^*?\[{]+)/gc ) {
+		my $t = $1;
+		if    ( $t eq '*' )  { $re .= '.*' }
+		elsif ( $t eq '?' )  { $re .= '.' }
+		elsif ( $t =~ /^\[/ ) { ( my $c = $t ) =~ s/^\[!/[^/; $re .= $c }
+		elsif ( $t =~ /^\{(.*)\}$/ ) { $re .= '(?:' . join( '|', map { quotemeta } split /,/, $1 ) . ')' }
+		else                 { $re .= quotemeta $t }
+	}
+	# anything left over (e.g. an unclosed bracket) is taken literally
+	$re .= quotemeta substr( $glob, pos($glob) || 0 );
+
+	my $compiled = eval { qr/^$re$/ };
+	return $compiled || qr/^\Q$glob\E$/;
+}
+
+# Random local audio track, optionally within a set of genres and/or a library.
+# Returns ($track, $genreId) - the genre id is the one that qualified the track
+# (undef when no genres were given).
 # Cue-sheet sub-tracks (url 'file:...#<start>-<end>') are included - both
 # bliss-analyser and Bliss Mixer handle them.
 sub _randomTrack {
-	my ($genreId, $lib) = @_;
+	my ($genreIds, $lib) = @_;
 	my $dbh = Slim::Schema->dbh;
 
 	my @joins;
-	my @where = ( "t.audio = 1", "t.remote = 0", "t.url LIKE 'file:%'" );
+	my @where  = ( "t.audio = 1", "t.remote = 0", "t.url LIKE 'file:%'" );
 	my @bind;
+	my $select = "t.id, NULL";
 
-	if ( defined $genreId ) {
+	if ( $genreIds && @$genreIds ) {
 		push @joins, "JOIN genre_track gt ON gt.track = t.id";
-		push @where, "gt.genre = ?";
-		push @bind,  $genreId;
+		push @where, "gt.genre IN (" . join( ',', ('?') x @$genreIds ) . ")";
+		push @bind,  @$genreIds;
+		$select = "t.id, gt.genre";
 	}
 	if ( $lib ne '' ) {
 		push @joins, "JOIN library_track lt ON lt.track = t.id";
@@ -555,16 +662,16 @@ sub _randomTrack {
 		push @bind,  $lib;
 	}
 
-	my $sql = "SELECT t.id FROM tracks t " . join( ' ', @joins ) . " WHERE " . join( ' AND ', @where ) . " ORDER BY RANDOM() LIMIT 1";
-	my ($id) = $dbh->selectrow_array( $sql, undef, @bind );
-	return undef unless $id;
+	my $sql = "SELECT $select FROM tracks t " . join( ' ', @joins ) . " WHERE " . join( ' AND ', @where ) . " ORDER BY RANDOM() LIMIT 1";
+	my ($id, $genreId) = $dbh->selectrow_array( $sql, undef, @bind );
+	return unless $id;
 
 	my ($track) = Slim::Schema->find( 'Track', $id );
-	return $track;
+	return ( $track, $genreId );
 }
 
 sub _tileFromTrack {
-	my ($track, $genreId) = @_;
+	my ($track, $genreId, $bucket) = @_;
 
 	return undef unless $track && $track->url =~ /^file:/;
 
@@ -579,10 +686,11 @@ sub _tileFromTrack {
 		genre   => $genreName,
 		genreid => $genre ? $genre->id : undef,
 		coverid => $track->coverid,
+		bucket  => $bucket,
 	};
 }
 
-# Replace a single tile (after it was played) with a track from a genre that
+# Replace a single tile (after it was played) with a track from a bucket that
 # is not currently shown in that library's set.
 sub _replaceTile {
 	my ($lib, $idx) = @_;
@@ -591,7 +699,7 @@ sub _replaceTile {
 	my $tiles = $tileSets{$lib} or return;
 	return unless defined $tiles->[$idx];
 
-	my %exclude = map { $_->{genreid} ? ( $_->{genreid} => 1 ) : () } @$tiles;
+	my %exclude = map { $_->{bucket} ? ( $_->{bucket} => 1 ) : () } @$tiles;
 	my %tracks  = map { $_->{trackid} => 1 } @$tiles;
 	my ($new) = _pickTracks( 1, \%exclude, $lib, \%tracks );
 	return unless $new;
@@ -640,6 +748,7 @@ sub _cliList {
 		$request->addResultLoop('tiles_loop', $i, 'title',   $tile->{title});
 		$request->addResultLoop('tiles_loop', $i, 'artist',  $tile->{artist});
 		$request->addResultLoop('tiles_loop', $i, 'genre',   $tile->{genre});
+		$request->addResultLoop('tiles_loop', $i, 'bucket',  $tile->{bucket});
 		$request->addResultLoop('tiles_loop', $i, 'trackid', $tile->{trackid});
 		$request->addResultLoop('tiles_loop', $i, 'coverid', $tile->{coverid});
 		$i++;
@@ -647,6 +756,7 @@ sub _cliList {
 	}
 	$request->addResult('count', $i);
 	$request->addResult('librarymode', $prefs->get('library') || '');
+	$request->addResult('genresource', $prefs->get('genreSource') || 'lms');
 	$request->addResult('materiallibrary', defined $materialLibrary{''} ? $materialLibrary{''} : '');
 	$request->addResult('material', $registeredWithMaterial);
 	$request->setStatusDone();

@@ -10,6 +10,13 @@
 		<input type="text" class="stdedit" name="pref_mixCount" id="pref_mixCount" value="[% prefs.pref_mixCount %]" size="4">
 	[% END %]
 
+	[% WRAPPER setting title="PLUGIN_BLISSDISCOVERY_GENRE_SOURCE" desc="PLUGIN_BLISSDISCOVERY_GENRE_SOURCE_DESC" %]
+		<select class="stdedit" name="pref_genreSource" id="pref_genreSource">
+			<option value="lms" [% IF prefs.pref_genreSource != 'bliss' %]selected[% END %]>[% "PLUGIN_BLISSDISCOVERY_GENRE_SOURCE_LMS" | string %]</option>
+			<option value="bliss" [% IF prefs.pref_genreSource == 'bliss' %]selected[% END %]>[% "PLUGIN_BLISSDISCOVERY_GENRE_SOURCE_BLISS" | string %] ([% blissGroupCount %])</option>
+		</select>
+	[% END %]
+
 	[% WRAPPER setting title="PLUGIN_BLISSDISCOVERY_LIBRARY" desc="PLUGIN_BLISSDISCOVERY_LIBRARY_DESC" %]
 		<select class="stdedit" name="pref_library" id="pref_library">
 			<option value="" [% IF prefs.pref_library == '' %]selected[% END %]>[% "PLUGIN_BLISSDISCOVERY_LIBRARY_ALL" | string %]</option>

@@ -18,7 +18,7 @@ sub page {
 }
 
 sub prefs {
-	return ( $prefs, qw(numTiles mixCount dstm refreshAfterPlay refreshHours library) );
+	return ( $prefs, qw(numTiles mixCount dstm refreshAfterPlay refreshHours library genreSource) );
 }
 
 sub handler {
@@ -33,6 +33,10 @@ sub handler {
 	if ( $params->{refreshNow} ) {
 		Plugins::BlissDiscovery::Plugin::refreshTiles();
 	}
+
+	# How many Bliss Mixer genre groups are defined, so the page can say so
+	my $blissGroups = preferences('plugin.blissmixer')->get('genre_groups') || '';
+	$params->{blissGroupCount} = scalar grep { /\S/ } split /\n/, $blissGroups;
 
 	# Virtual libraries for the library selector
 	my $libs = Slim::Music::VirtualLibraries->getLibraries() || {};

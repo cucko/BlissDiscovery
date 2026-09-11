@@ -53,6 +53,7 @@ Server Settings → Plugins → Bliss Discovery:
 |---|---|---|
 | Number of tiles | 6 | 1–12 tiles, one genre each |
 | Mix length | 20 | Tracks in the generated mix (1–50) |
+| Genres from | LMS genres | What "one genre per tile" means: a different **Lyrion Music Server genre**, or a different **Bliss Mixer genre group** (Bliss Mixer settings → Genre groups). Group names are matched like Bliss does — case-insensitive globs (`* Rock`) — and with Bliss's *Use track genre* on, every ungrouped genre counts as its own group. Falls back to LMS genres if no groups are defined |
 | Restrict to library | All music | Pick tiles and mix tracks only from a virtual library. Choose a specific library, **Library selected in Material Skin** to follow Material's own **Change Library** button, or **Player's library view** to follow each player's own library setting (LMS Settings → Player → Library View); in the latter two modes each browser / player gets its own tile set |
 | Enable Don't Stop The Music | off | Also switch the player's DSTM to Bliss Mixer when a tile is tapped |
 | Replace tile after playing | on | The tapped tile is swapped for a song from a genre not currently shown |
@@ -64,7 +65,11 @@ Tile changes are pushed to Material live (no page reload needed).
 ## How it works
 
 * On startup (and after rescans / on schedule) the plugin picks random genres
-  and one random local track per genre.
+  — or Bliss Mixer genre groups, per the *Genres from* setting — and one random
+  local track per genre/group. Bliss's groups are read from the Bliss Mixer
+  plugin's `genre_groups` preference and resolved to LMS genre ids with the
+  same rules the mixer uses (case-insensitive globs, ungrouped genres as
+  singleton groups when *Use track genre* is on).
 * It registers a home-screen section with Material via
   `Plugins::MaterialSkin::Plugin->registerHomeExtra`. Material asks for the
   items when it draws the home screen; each item carries the track's cover

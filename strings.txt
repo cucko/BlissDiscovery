@@ -73,6 +73,18 @@ PLUGIN_BLISSDISCOVERY_NO_BLISS
 PLUGIN_BLISSDISCOVERY_NO_MIX
 	EN	Bliss could not create a mix from "%s" - has this track been analysed?
 
+PLUGIN_BLISSDISCOVERY_GENRE_SOURCE
+	EN	Genres from
+
+PLUGIN_BLISSDISCOVERY_GENRE_SOURCE_DESC
+	EN	Every tile comes from a different genre. Choose whether that means a different Lyrion Music Server genre, or a different Bliss Mixer genre group (Settings > Plugins > Bliss Mixer > Genre groups; the number of groups currently defined is shown in brackets). Group names are matched the way Bliss does it - case-insensitively, with * as a wildcard - and with Bliss's "Use track genre" option on, each genre not in any group counts as its own group. If no groups are defined, server genres are used.
+
+PLUGIN_BLISSDISCOVERY_GENRE_SOURCE_LMS
+	EN	Lyrion Music Server genres
+
+PLUGIN_BLISSDISCOVERY_GENRE_SOURCE_BLISS
+	EN	Bliss Mixer genre groups
+
 PLUGIN_BLISSDISCOVERY_LIBRARY
 	EN	Restrict to library
 

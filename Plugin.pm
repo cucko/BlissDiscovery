@@ -172,10 +172,15 @@ sub _homeExtraHandler {
 		$idx++;
 	}
 
+	# nextWindow 'refresh' makes Material re-run the command that built the
+	# current list once the tiles have been re-picked. On the home screen that
+	# is a no-op (the refresh-home notification already updates it), but on the
+	# "More" page it is the only thing that redraws the list.
 	push @items, {
-		text      => string('PLUGIN_BLISSDISCOVERY_REGENERATE'),
-		'icon-id' => 'MTL_icon_refresh',
-		actions   => {
+		text       => string('PLUGIN_BLISSDISCOVERY_REGENERATE'),
+		'icon-id'  => 'MTL_icon_refresh',
+		nextWindow => 'refresh',
+		actions    => {
 			go => {
 				cmd => [ 'blissdiscovery', 'refresh' ],
 			},

@@ -3,7 +3,7 @@
 	<name>PLUGIN_BLISSDISCOVERY</name>
 	<module>Plugins::BlissDiscovery::Plugin</module>
 	<description>PLUGIN_BLISSDISCOVERY_DESC</description>
-	<version>0.3.1</version>
+	<version>0.4.0</version>
 	<creator>Bliss Discovery</creator>
 	<email></email>
 	<homepageURL></homepageURL>

@@ -38,10 +38,21 @@ use constant MORE_FACTOR => 3;
 # is how we tell the two apart.
 use constant HOME_ROW_MAX => 30;
 
+# The library id Material Skin uses for "All tracks" in its Change Library dialog
+use constant MATERIAL_ALL_LIB => '-1';
+
 # Tile sets, keyed by library id ('' = whole library). Each value is an
 # arrayref of tiles: { trackid, title, artist, genre, genreid, coverid }
 my %tileSets = ();
 my $registeredWithMaterial = 0;
+
+# Library last chosen with Material Skin's "Change Library" button, keyed by
+# player id; the '' key holds the most recent value seen from any browser and
+# is used when we have no player.
+my %materialLibrary = ();
+
+# Material Skin's own 'material-skin' CLI handler, which we chain in front of
+my $materialCliChain;
 
 # Bliss Mixer returns at most this many tracks per request
 use constant BLISS_MAX_COUNT => 50;
@@ -57,7 +68,7 @@ sub initPlugin {
 		dstm             => 0,
 		refreshAfterPlay => 1,
 		refreshHours     => 24,
-		library          => '',     # '' = all music, 'player' = player's library view, else a virtual library id
+		library          => '',     # '' = all music, 'material' = Material Skin's Change Library, 'player' = player's library view, else a virtual library id
 	});
 
 	$prefs->setValidate({ validator => 'intlimit', low => 1, high => MAX_TILES }, 'numTiles');
@@ -99,6 +110,7 @@ sub shutdownPlugin {
 	Slim::Utils::Timers::killTimers(undef, \&refreshTiles);
 	Slim::Utils::Timers::killTimers(undef, \&_periodicRefresh);
 	Slim::Control::Request::unsubscribe(\&_onRescanDone);
+	_unhookMaterialCli();
 }
 
 # ---------------------------------------------------------------------------
@@ -118,6 +130,8 @@ sub _registerWithMaterial {
 	# Material to call us with the player.
 	my $needsPlayer = ( $prefs->get('library') || '' ) eq 'player' ? 1 : 0;
 
+	_hookMaterialCli();
+
 	Plugins::MaterialSkin::Plugin->registerHomeExtra( HOME_EXTRA_ID, {
 		title       => 'PLUGIN_BLISSDISCOVERY_HOME_TITLE',
 		subtitle    => 'PLUGIN_BLISSDISCOVERY_HOME_SUBTITLE',
@@ -131,6 +145,56 @@ sub _registerWithMaterial {
 
 	$registeredWithMaterial = 1;
 	main::INFOLOG && $log->info('Registered home-screen section with Material Skin');
+}
+
+# Material Skin keeps the library picked with its "Change Library" button in the
+# browser, and only sends it along as a 'library_id' parameter on the requests
+# that browser makes - it is not part of the arguments a home-extra handler is
+# given. So chain ourselves in front of Material's own CLI handler and note the
+# value as it goes past.
+sub _hookMaterialCli {
+	return if $materialCliChain;
+
+	# addDispatch hands back the function it replaced, so that a new entry can
+	# call the old one.
+	my $prev = Slim::Control::Request::addDispatch(
+		[ 'material-skin', '_cmd' ], [ 0, 0, 1, \&_materialCliHook ]
+	);
+
+	if ( !$prev ) {
+		$log->warn('Could not chain the Material Skin CLI handler - its selected library will not be seen');
+		return;
+	}
+
+	$materialCliChain = $prev;
+	main::INFOLOG && $log->info("Watching Material Skin's requests for the selected library");
+}
+
+sub _unhookMaterialCli {
+	return unless $materialCliChain;
+	Slim::Control::Request::addDispatch( [ 'material-skin', '_cmd' ], [ 0, 0, 1, $materialCliChain ] );
+	$materialCliChain = undef;
+}
+
+sub _materialCliHook {
+	my $request = shift;
+
+	if ( ( $request->getParam('_cmd') || '' ) eq 'home-extra' ) {
+		my $lib = $request->getParam('library_id');
+
+		# Only the home screen sends library_id; the section's "More" page does
+		# not, so leave the last known value alone when it is missing.
+		if ( defined $lib && $lib ne '' ) {
+			$lib = '' if $lib eq MATERIAL_ALL_LIB;
+			$lib = '' unless $lib eq '' || Slim::Music::VirtualLibraries->getRealId($lib);
+
+			my $client = $request->client;
+			$materialLibrary{''} = $lib;
+			$materialLibrary{ $client->id } = $lib if $client;
+		}
+	}
+
+	$materialCliChain->( $request, @_ );
 }
 
 # Called by Material Skin when it builds the home screen, and again (with a
@@ -358,6 +422,17 @@ sub _effectiveLibrary {
 
 	return '' if $pref eq '';
 
+	# Library picked with Material Skin's "Change Library" button, as last seen
+	# on a home-screen request from that browser.
+	if ( $pref eq 'material' ) {
+		my $lib = ( $client && defined $materialLibrary{ $client->id } )
+			? $materialLibrary{ $client->id }
+			: $materialLibrary{''};
+
+		return '' unless defined $lib && $lib ne '';
+		return Slim::Music::VirtualLibraries->getRealId($lib) || '';
+	}
+
 	if ( $pref eq 'player' ) {
 		return '' unless $client;
 		return Slim::Music::VirtualLibraries->getLibraryIdForClient($client) || '';
@@ -570,6 +645,7 @@ sub _cliList {
 	}
 	$request->addResult('count', $i);
 	$request->addResult('librarymode', $prefs->get('library') || '');
+	$request->addResult('materiallibrary', defined $materialLibrary{''} ? $materialLibrary{''} : '');
 	$request->addResult('material', $registeredWithMaterial);
 	$request->setStatusDone();
 }

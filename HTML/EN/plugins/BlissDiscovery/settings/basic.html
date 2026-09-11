@@ -13,6 +13,7 @@
 	[% WRAPPER setting title="PLUGIN_BLISSDISCOVERY_LIBRARY" desc="PLUGIN_BLISSDISCOVERY_LIBRARY_DESC" %]
 		<select class="stdedit" name="pref_library" id="pref_library">
 			<option value="" [% IF prefs.pref_library == '' %]selected[% END %]>[% "PLUGIN_BLISSDISCOVERY_LIBRARY_ALL" | string %]</option>
+			<option value="material" [% IF prefs.pref_library == 'material' %]selected[% END %]>[% "PLUGIN_BLISSDISCOVERY_LIBRARY_MATERIAL" | string %]</option>
 			<option value="player" [% IF prefs.pref_library == 'player' %]selected[% END %]>[% "PLUGIN_BLISSDISCOVERY_LIBRARY_PLAYER" | string %]</option>
 			[% FOREACH lib = libraries %]
 			<option value="[% lib.id %]" [% IF prefs.pref_library == lib.id %]selected[% END %]>[% lib.name | html %]</option>

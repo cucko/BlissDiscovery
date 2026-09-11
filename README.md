@@ -53,7 +53,7 @@ Server Settings → Plugins → Bliss Discovery:
 |---|---|---|
 | Number of tiles | 6 | 1–12 tiles, one genre each |
 | Mix length | 20 | Tracks in the generated mix (1–50) |
-| Restrict to library | All music | Pick tiles and mix tracks only from a virtual library. Choose a specific library, or **Player's library view** to follow each player's own library setting (LMS Settings → Player → Library View); in that mode every player gets its own tile set |
+| Restrict to library | All music | Pick tiles and mix tracks only from a virtual library. Choose a specific library, **Library selected in Material Skin** to follow Material's own **Change Library** button, or **Player's library view** to follow each player's own library setting (LMS Settings → Player → Library View); in the latter two modes each browser / player gets its own tile set |
 | Enable Don't Stop The Music | off | Also switch the player's DSTM to Bliss Mixer when a tile is tapped |
 | Replace tile after playing | on | The tapped tile is swapped for a song from a genre not currently shown |
 | Refresh all tiles every (hours) | 24 | Periodic re-pick of all tiles; 0 disables. Tiles also refresh after every rescan |
@@ -89,12 +89,21 @@ blissdiscovery list                     # show current tiles
 
 ## Library restriction
 
-Bliss Mixer itself doesn't know about virtual libraries, and Material only
-passes its browser-selected library to its own built-in sections. So the
-plugin handles it: tile songs are picked from the chosen library, Bliss is
-asked for up to 3× the mix length, and the result is filtered to tracks in the
-library before loading (trimmed back to the mix length). If very few tracks in
-a library have been analysed, mixes may come out shorter than requested.
+Bliss Mixer itself doesn't know about virtual libraries, so the plugin handles
+it: tile songs are picked from the chosen library, Bliss is asked for up to 3×
+the mix length, and the result is filtered to tracks in the library before
+loading (trimmed back to the mix length). If very few tracks in a library have
+been analysed, mixes may come out shorter than requested.
+
+Material Skin keeps the library chosen with its **Change Library** button in
+the browser, and passes it to the server only as a `library_id` parameter on
+the requests that browser makes - it is not handed to third-party home-screen
+sections. In **Library selected in Material Skin** mode the plugin therefore
+chains itself in front of Material's own `material-skin` CLI handler (using the
+previous handler that `addDispatch` returns) and notes `library_id` as it goes
+past, per player. Changing the library in Material re-fetches the home screen,
+so the tiles swap over straight away. The section's **More** page does not send
+`library_id`, so it reuses the last value seen from the home screen.
 
 ## Notes
 

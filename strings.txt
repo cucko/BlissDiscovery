@@ -77,10 +77,13 @@ PLUGIN_BLISSDISCOVERY_LIBRARY
 	EN	Restrict to library
 
 PLUGIN_BLISSDISCOVERY_LIBRARY_DESC
-	EN	Pick tile songs and mix tracks only from this virtual library. "Player's library view" uses the library view set for the player that is selected in Material Skin (LMS Settings > Player > Library View), so each player can get its own tiles.
+	EN	Pick tile songs and mix tracks only from this virtual library. "Library selected in Material Skin" follows the library chosen with Material Skin's "Change Library" button, so each browser gets tiles for the library it is browsing. "Player's library view" uses the library view set for the player that is selected in Material Skin (LMS Settings > Player > Library View), so each player can get its own tiles.
 
 PLUGIN_BLISSDISCOVERY_LIBRARY_ALL
 	EN	All music (no restriction)
+
+PLUGIN_BLISSDISCOVERY_LIBRARY_MATERIAL
+	EN	Library selected in Material Skin
 
 PLUGIN_BLISSDISCOVERY_LIBRARY_PLAYER
 	EN	Player's library view

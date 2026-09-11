@@ -4,15 +4,15 @@
 		<title lang="EN">Bliss Discovery</title>
 	</details>
 	<plugins>
-		<plugin name="BlissDiscovery" version="0.5.1" minTarget="8.0" maxTarget="*">
+		<plugin name="BlissDiscovery" version="0.5.2" minTarget="8.0" maxTarget="*">
 			<title lang="EN">Bliss Discovery</title>
 			<desc lang="EN">Adds tiles to My Music showing random songs from different genres. Clicking a tile starts a Bliss mix seeded from that song.</desc>
 			<category>musicservices</category>
 			<icon>plugins/BlissDiscovery/html/images/MTL_icon_auto_awesome.png</icon>
 			<link>https://github.com/cucko/BlissDiscovery</link>
 			<creator>Bliss Discovery</creator>
-			<url>https://github.com/cucko/BlissDiscovery/releases/download/v0.5.1/BlissDiscovery-0.5.1.zip</url>
-			<sha>945134b98d86a10f2971bdc2e44dc08495863e6e</sha>
+			<url>https://github.com/cucko/BlissDiscovery/releases/download/v0.5.2/BlissDiscovery-0.5.2.zip</url>
+			<sha>4e3bce5e9aeca307e29d89f746f39ca3cde96304</sha>
 		</plugin>
 	</plugins>
 </extensions>

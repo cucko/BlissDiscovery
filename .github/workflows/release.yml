@@ -1,0 +1,56 @@
+name: Release plugin
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine version and zip name
+        id: vars
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "zip=BlissDiscovery-$VERSION.zip" >> "$GITHUB_OUTPUT"
+
+      - name: Stamp version into install.xml
+        run: sed -i "s#<version>.*</version>#<version>${{ steps.vars.outputs.version }}</version>#" install.xml
+
+      - name: Build plugin zip
+        run: |
+          zip -r "${{ steps.vars.outputs.zip }}" . \
+            -x '.git/*' -x '.github/*' -x 'README.md' -x 'public.xml' -x '*.zip'
+
+      - name: Compute SHA1
+        id: sha
+        run: echo "sha1=$(sha1sum "${{ steps.vars.outputs.zip }}" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.vars.outputs.zip }}
+          generate_release_notes: true
+
+      - name: Update public.xml on main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          git checkout main
+          sed -i \
+            -e "s#<plugin name=\"BlissDiscovery\" version=\"[^\"]*\"#<plugin name=\"BlissDiscovery\" version=\"${{ steps.vars.outputs.version }}\"#" \
+            -e "s#<url>.*</url>#<url>https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/${{ steps.vars.outputs.zip }}</url>#" \
+            -e "s#<sha>.*</sha>#<sha>${{ steps.sha.outputs.sha1 }}</sha>#" \
+            public.xml
+          sed -i "s#<version>.*</version>#<version>${{ steps.vars.outputs.version }}</version>#" install.xml
+          git add public.xml install.xml
+          git commit -m "Release v${{ steps.vars.outputs.version }}: update public.xml" || echo "No changes to commit"
+          git push origin main

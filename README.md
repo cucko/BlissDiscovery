@@ -17,13 +17,33 @@ Requires:
 
 ## Install
 
+### Via the LMS plugin repository (recommended)
+
+1. In LMS, open **Settings → Plugins**, scroll to the bottom and add this URL
+   under **Additional Repositories**:
+
+   ```
+   https://raw.githubusercontent.com/cucko/BlissDiscovery/main/public.xml
+   ```
+
+2. Press **Apply**. **Bliss Discovery** now shows up in the plugin list under
+   3rd party plugins — check it, press **Apply** again, and restart LMS when
+   prompted.
+3. Future updates show up the same way LMS's own plugins do: a new version in
+   the list to check and apply.
+
+### Manual install
+
 1. Stop LMS.
 2. Copy the `BlissDiscovery` folder into your LMS `Plugins` directory so you get
    `Plugins/BlissDiscovery/Plugin.pm`.
 3. Start LMS. The plugin is enabled by default.
-4. In Material Skin open **Settings → Interface → Home screen** (the list of
-   home-screen sections such as New Music / Recently Played) and enable
-   **Bliss Discovery**. Drag it to where you want it.
+
+### After installing
+
+In Material Skin open **Settings → Interface → Home screen** (the list of
+home-screen sections such as New Music / Recently Played) and enable
+**Bliss Discovery**. Drag it to where you want it.
 
 ## Settings
 
@@ -70,6 +90,13 @@ plugin handles it: tile songs are picked from the chosen library, Bliss is
 asked for up to 3× the mix length, and the result is filtered to tracks in the
 library before loading (trimmed back to the mix length). If very few tracks in
 a library have been analysed, mixes may come out shorter than requested.
+
+## Releasing a new version
+
+Pushing a tag like `v0.4.0` runs [`.github/workflows/release.yml`](.github/workflows/release.yml),
+which zips the plugin, attaches it to a new GitHub release, and updates
+`public.xml` with the new version/URL/SHA1 so users with the repository added
+get the update automatically.
 
 ## Notes
 

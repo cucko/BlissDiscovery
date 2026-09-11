@@ -9,7 +9,7 @@ package Plugins::BlissDiscovery::Plugin;
 
 use strict;
 use warnings;
-use base qw(Slim::Plugin::Base);
+use base qw(Slim::Plugin::OPMLBased);
 
 use Slim::Utils::Log;
 use Slim::Utils::Prefs;
@@ -105,7 +105,16 @@ sub initPlugin {
 	# Re-pick tiles after a library rescan
 	Slim::Control::Request::subscribe(\&_onRescanDone, [['rescan'], ['done']]);
 
-	$class->SUPER::initPlugin(@_);
+	# Adds a "Bliss Discovery" entry to the "My Apps" menu (Default/Touch web
+	# skin, Jive/SqueezePlay-based UIs, ...) - tapping it lists the current
+	# tiles and starts a Bliss mix from whichever one is selected.
+	$class->SUPER::initPlugin(
+		feed   => \&_appMenu,
+		tag    => 'blissdiscovery',
+		menu   => 'apps',
+		weight => 50,
+		is_app => 1,
+	);
 }
 
 sub postinitPlugin {
@@ -277,6 +286,103 @@ sub _homeExtraHandler {
 		count     => $count,
 		offset    => 0,
 	});
+}
+
+# ---------------------------------------------------------------------------
+# "My Apps" menu (Slim::Plugin::OPMLBased feed - Default/Touch skin, Jive/
+# SqueezePlay-based UIs, and any other client that browses the apps menu)
+# ---------------------------------------------------------------------------
+
+# One item per current tile, plus a "Regenerate" action. Each item's `url` is
+# a sub that runs the same CLI command the Material Skin home-screen section
+# uses - `url` (drill-down) is used rather than a bare `actions.go`, since
+# that is the one selection mechanism every OPML client (Default/Touch web
+# skin, Jive/SqueezePlay, Material's own apps browser, Squeezer, ...) is
+# guaranteed to invoke when an item is picked. Each item's own `nextWindow`
+# (not the url handler's response - that's too late, the client has already
+# navigated by then) tells the client what to do once url resolves instead
+# of showing the window it returns, so tapping never drills down a level.
+# Unlike the Material home row (capped to "Number of tiles" tiles), the My
+# Apps menu isn't space constrained, so it shows the full expanded set - the
+# same one Material's "More" button would reveal.
+sub _appMenu {
+	my ($client, $cb, $args) = @_;
+
+	my $lib      = _effectiveLibrary($client);
+	my $numTiles = $prefs->get('numTiles') || 6;
+	my $tiles    = _tilesFor( $lib, $numTiles * MORE_FACTOR );
+
+	my @items;
+
+	for my $i ( 0 .. $#$tiles ) {
+		my $tile = $tiles->[$i];
+		my $name = $tile->{title};
+		$name .= ' - ' . $tile->{artist} if $tile->{artist};
+		$name .= " ($tile->{genre})" if $tile->{genre};
+
+		push @items, {
+			name       => $name,
+			icon       => $tile->{coverid} ? "music/$tile->{coverid}/cover.jpg" : 'plugins/BlissDiscovery/html/images/icon.png',
+			type       => 'link',
+			url        => sub { _appMenuPlay( $i, $lib, @_ ); },
+			# Tells the client what to do once url resolves, instead of
+			# pushing/showing the (empty) window it returns - same convention
+			# as the Regenerate item on the Material home row.
+			nextWindow => 'parent',
+		};
+	}
+
+	push @items, {
+		name       => string('PLUGIN_BLISSDISCOVERY_REGENERATE'),
+		icon       => 'plugins/BlissDiscovery/html/images/icon.png',
+		type       => 'link',
+		url        => \&_appMenuRefresh,
+		nextWindow => 'refresh',
+	};
+
+	$cb->({
+		items  => \@items,
+		offset => 0,
+		count  => scalar @items,
+	});
+}
+
+# Selecting a tile: run the same "blissdiscovery playlist play" CLI command
+# the Material Skin section uses (so DSTM, tile replacement, and the Material
+# toast all still happen), then pop straight back to the tile list - nothing
+# new is shown, the mix just starts on the current player.
+sub _appMenuPlay {
+	my ($idx, $lib, $client, $cb, $args) = @_;
+
+	if ( !$client ) {
+		$cb->({ items => [], nextWindow => 'parent' });
+		return;
+	}
+
+	my @cmd = ( 'blissdiscovery', 'playlist', 'play', "tile:$idx" );
+	push @cmd, "lib:$lib" if $lib ne '';
+
+	my $req = Slim::Control::Request::executeRequest( $client, \@cmd );
+
+	my $respond = sub {
+		$cb->({ items => [], nextWindow => 'parent' });
+	};
+
+	if ( $req && $req->isStatusProcessing ) {
+		$req->callbackFunction($respond);
+	}
+	else {
+		$respond->();
+	}
+}
+
+# "Regenerate": re-pick all tiles, then have the client re-fetch this same
+# list (via _appMenu) so it redraws with the new tiles rather than pushing a
+# new screen.
+sub _appMenuRefresh {
+	my ($client, $cb, $args) = @_;
+	refreshTiles();
+	$cb->({ items => [], nextWindow => 'refresh' });
 }
 
 # Ask Material Skin (all connected browsers) to re-fetch the home screen sections

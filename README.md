@@ -5,8 +5,13 @@ album-art tiles, each a randomly picked song from a **different genre**, shown
 exactly like Material's "New Music" section. Tapping a tile immediately
 starts a **Bliss mix** seeded from that song on the current player.
 
+It also adds a **Bliss Discovery** entry to the **My Apps** menu, so the same
+tiles are reachable from the Default/Touch web skin and any Jive/SqueezePlay-
+based player UI, not just Material Skin.
+
 Requires:
-* **Material Skin** (recent version with third-party home-screen sections)
+* **Material Skin** (recent version with third-party home-screen sections) for
+  the home-screen section - the **My Apps** entry works without it
 * **Bliss Mixer** plugin, with your library analysed by bliss-analyser
 
 ## Screenshots
@@ -83,6 +88,10 @@ Tile changes are pushed to Material live (no page reload needed).
   `blissmixer mix track_id:<id> count:<n>` (the Bliss Mixer plugin does all
   the mixing), loads the returned tracks with the seed song first, optionally
   switches DSTM to Bliss, and shows a Material toast.
+* The same tiles are exposed as a **Bliss Discovery** entry under **My Apps**
+  via `Slim::Plugin::OPMLBased` (`menu => 'apps'`), so any skin or player UI
+  that browses the apps menu can reach them, tapping a tile there runs the
+  same `blissdiscovery playlist play tile:N` command.
 
 ## CLI
 

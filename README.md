@@ -96,13 +96,6 @@ asked for up to 3× the mix length, and the result is filtered to tracks in the
 library before loading (trimmed back to the mix length). If very few tracks in
 a library have been analysed, mixes may come out shorter than requested.
 
-## Releasing a new version
-
-Pushing a tag like `v0.4.0` runs [`.github/workflows/release.yml`](.github/workflows/release.yml),
-which zips the plugin, attaches it to a new GitHub release, and updates
-`public.xml` with the new version/URL/SHA1 so users with the repository added
-get the update automatically.
-
 ## Notes
 
 * Songs are picked from the LMS library, not from the Bliss analysis DB. If a

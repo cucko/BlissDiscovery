@@ -154,7 +154,7 @@ sub _registerWithMaterial {
 	Plugins::MaterialSkin::Plugin->registerHomeExtra( HOME_EXTRA_ID, {
 		title       => 'PLUGIN_BLISSDISCOVERY_HOME_TITLE',
 		subtitle    => 'PLUGIN_BLISSDISCOVERY_HOME_SUBTITLE',
-		icon        => 'MTL_icon_auto_awesome',
+		icon        => 'plugins/BlissDiscovery/html/images/MTL_icon_auto_awesome.png',
 		needsPlayer => $needsPlayer,
 		# Lower bound for the quantity Material asks us for - must stay below
 		# HOME_ROW_MAX so that a "More" request is still recognisable.
@@ -324,7 +324,7 @@ sub _appMenu {
 
 		push @items, {
 			name       => $name,
-			icon       => $tile->{coverid} ? "music/$tile->{coverid}/cover.jpg" : 'MTL_icon_auto_awesome',
+			icon       => $tile->{coverid} ? "music/$tile->{coverid}/cover.jpg" : 'plugins/BlissDiscovery/html/images/MTL_icon_auto_awesome.png',
 			type       => 'link',
 			url        => sub { _appMenuPlay( $i, $lib, @_ ); },
 			# Tells the client what to do once url resolves, instead of

@@ -7,7 +7,7 @@
 	<creator>Bliss Discovery</creator>
 	<email></email>
 	<homepageURL></homepageURL>
-	<icon>MTL_icon_auto_awesome</icon>
+	<icon>plugins/BlissDiscovery/html/images/MTL_icon_auto_awesome.png</icon>
 	<defaultState>enabled</defaultState>
 	<targetApplication>
 		<id>SqueezeCenter</id>

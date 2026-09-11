@@ -1,0 +1,83 @@
+PLUGIN_BLISSDISCOVERY
+	EN	Bliss Discovery
+
+PLUGIN_BLISSDISCOVERY_DESC
+	EN	Adds tiles to My Music showing random songs from different genres. Clicking a tile starts a Bliss mix seeded from that song.
+
+PLUGIN_BLISSDISCOVERY_NUM_TILES
+	EN	Number of tiles
+
+PLUGIN_BLISSDISCOVERY_NUM_TILES_DESC
+	EN	How many song tiles to show on the Material Skin home screen (1-12). Each tile uses a song from a different genre. Enable the section in Material Skin: Settings > Interface > Home screen items > Bliss Discovery.
+
+PLUGIN_BLISSDISCOVERY_MIX_COUNT
+	EN	Mix length
+
+PLUGIN_BLISSDISCOVERY_MIX_COUNT_DESC
+	EN	Number of tracks the Bliss mix should contain (1-50).
+
+PLUGIN_BLISSDISCOVERY_DSTM
+	EN	Enable Don't Stop The Music
+
+PLUGIN_BLISSDISCOVERY_DSTM_DESC
+	EN	When a mix is started, also enable DSTM with Bliss Mixer on that player so the mix keeps going.
+
+PLUGIN_BLISSDISCOVERY_REFRESH_AFTER_PLAY
+	EN	Replace tile after playing
+
+PLUGIN_BLISSDISCOVERY_REFRESH_AFTER_PLAY_DESC
+	EN	After a tile is clicked, replace it with a new song from a genre not currently shown.
+
+PLUGIN_BLISSDISCOVERY_REFRESH_HOURS
+	EN	Refresh all tiles every (hours)
+
+PLUGIN_BLISSDISCOVERY_REFRESH_HOURS_DESC
+	EN	Pick a fresh set of songs periodically. 0 disables. Tiles are also refreshed after every library rescan.
+
+PLUGIN_BLISSDISCOVERY_REFRESH_NOW
+	EN	Refresh tiles now
+
+PLUGIN_BLISSDISCOVERY_REFRESH_NOW_DESC
+	EN	Immediately pick a new set of songs for all tiles.
+
+PLUGIN_BLISSDISCOVERY_MIX_TITLE
+	EN	Bliss mix
+
+PLUGIN_BLISSDISCOVERY_STARTED
+	EN	Bliss mix started from "%s" by %s
+
+PLUGIN_BLISSDISCOVERY_NEW_SONG
+	EN	Pick a different song for this tile
+
+PLUGIN_BLISSDISCOVERY_REPLACED
+	EN	Tile replaced. Reload the page to see the new artwork.
+
+PLUGIN_BLISSDISCOVERY_NO_TILE
+	EN	This tile is no longer available - the home screen will refresh.
+
+PLUGIN_BLISSDISCOVERY_NO_PLAYER
+	EN	No player selected.
+
+PLUGIN_BLISSDISCOVERY_HOME_TITLE
+	EN	Bliss Discovery
+
+PLUGIN_BLISSDISCOVERY_HOME_SUBTITLE
+	EN	Tap a song to start a Bliss mix
+
+PLUGIN_BLISSDISCOVERY_NO_BLISS
+	EN	Bliss Mixer plugin not available
+
+PLUGIN_BLISSDISCOVERY_NO_MIX
+	EN	Bliss could not create a mix from "%s" - has this track been analysed?
+
+PLUGIN_BLISSDISCOVERY_LIBRARY
+	EN	Restrict to library
+
+PLUGIN_BLISSDISCOVERY_LIBRARY_DESC
+	EN	Pick tile songs and mix tracks only from this virtual library. "Player's library view" uses the library view set for the player that is selected in Material Skin (LMS Settings > Player > Library View), so each player can get its own tiles.
+
+PLUGIN_BLISSDISCOVERY_LIBRARY_ALL
+	EN	All music (no restriction)
+
+PLUGIN_BLISSDISCOVERY_LIBRARY_PLAYER
+	EN	Player's library view

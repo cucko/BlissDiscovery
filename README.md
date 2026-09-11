@@ -73,5 +73,3 @@ a library have been analysed, mixes may come out shorter than requested.
 * Only local (`file://`) tracks are used; cue-sheet sub-tracks are skipped.
 * If the Material Skin plugin isn't installed you'll get a warning in the
   server log and no tiles.
-# BlissDiscovery
-# BlissDiscovery

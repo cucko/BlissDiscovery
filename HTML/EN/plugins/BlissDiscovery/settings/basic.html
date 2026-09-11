@@ -1,0 +1,41 @@
+[% PROCESS settings/header.html %]
+
+[% WRAPPER settingSection %]
+
+	[% WRAPPER setting title="PLUGIN_BLISSDISCOVERY_NUM_TILES" desc="PLUGIN_BLISSDISCOVERY_NUM_TILES_DESC" %]
+		<input type="text" class="stdedit" name="pref_numTiles" id="pref_numTiles" value="[% prefs.pref_numTiles %]" size="4">
+	[% END %]
+
+	[% WRAPPER setting title="PLUGIN_BLISSDISCOVERY_MIX_COUNT" desc="PLUGIN_BLISSDISCOVERY_MIX_COUNT_DESC" %]
+		<input type="text" class="stdedit" name="pref_mixCount" id="pref_mixCount" value="[% prefs.pref_mixCount %]" size="4">
+	[% END %]
+
+	[% WRAPPER setting title="PLUGIN_BLISSDISCOVERY_LIBRARY" desc="PLUGIN_BLISSDISCOVERY_LIBRARY_DESC" %]
+		<select class="stdedit" name="pref_library" id="pref_library">
+			<option value="" [% IF prefs.pref_library == '' %]selected[% END %]>[% "PLUGIN_BLISSDISCOVERY_LIBRARY_ALL" | string %]</option>
+			<option value="player" [% IF prefs.pref_library == 'player' %]selected[% END %]>[% "PLUGIN_BLISSDISCOVERY_LIBRARY_PLAYER" | string %]</option>
+			[% FOREACH lib = libraries %]
+			<option value="[% lib.id %]" [% IF prefs.pref_library == lib.id %]selected[% END %]>[% lib.name | html %]</option>
+			[% END %]
+		</select>
+	[% END %]
+
+	[% WRAPPER setting title="PLUGIN_BLISSDISCOVERY_DSTM" desc="PLUGIN_BLISSDISCOVERY_DSTM_DESC" %]
+		<input type="checkbox" name="pref_dstm" id="pref_dstm" value="1" [% IF prefs.pref_dstm %]checked="checked"[% END %]>
+	[% END %]
+
+	[% WRAPPER setting title="PLUGIN_BLISSDISCOVERY_REFRESH_AFTER_PLAY" desc="PLUGIN_BLISSDISCOVERY_REFRESH_AFTER_PLAY_DESC" %]
+		<input type="checkbox" name="pref_refreshAfterPlay" id="pref_refreshAfterPlay" value="1" [% IF prefs.pref_refreshAfterPlay %]checked="checked"[% END %]>
+	[% END %]
+
+	[% WRAPPER setting title="PLUGIN_BLISSDISCOVERY_REFRESH_HOURS" desc="PLUGIN_BLISSDISCOVERY_REFRESH_HOURS_DESC" %]
+		<input type="text" class="stdedit" name="pref_refreshHours" id="pref_refreshHours" value="[% prefs.pref_refreshHours %]" size="4">
+	[% END %]
+
+	[% WRAPPER setting title="PLUGIN_BLISSDISCOVERY_REFRESH_NOW" desc="PLUGIN_BLISSDISCOVERY_REFRESH_NOW_DESC" %]
+		<input type="submit" name="refreshNow" value="[% "PLUGIN_BLISSDISCOVERY_REFRESH_NOW" | string %]">
+	[% END %]
+
+[% END %]
+
+[% PROCESS settings/footer.html %]

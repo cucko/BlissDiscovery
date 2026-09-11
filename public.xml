@@ -8,7 +8,7 @@
 			<title lang="EN">Bliss Discovery</title>
 			<desc lang="EN">Adds tiles to My Music showing random songs from different genres. Clicking a tile starts a Bliss mix seeded from that song.</desc>
 			<category>musicservices</category>
-			<icon>https://raw.githubusercontent.com/cucko/BlissDiscovery/main/HTML/EN/plugins/BlissDiscovery/html/images/icon.png</icon>
+			<icon>MTL_icon_auto_awesome</icon>
 			<link>https://github.com/cucko/BlissDiscovery</link>
 			<creator>Bliss Discovery</creator>
 			<url>https://github.com/cucko/BlissDiscovery/releases/download/v0.5.0/BlissDiscovery-0.5.0.zip</url>

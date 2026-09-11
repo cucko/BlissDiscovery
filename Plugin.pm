@@ -322,7 +322,7 @@ sub _appMenu {
 
 		push @items, {
 			name       => $name,
-			icon       => $tile->{coverid} ? "music/$tile->{coverid}/cover.jpg" : 'plugins/BlissDiscovery/html/images/icon.png',
+			icon       => $tile->{coverid} ? "music/$tile->{coverid}/cover.jpg" : 'MTL_icon_auto_awesome',
 			type       => 'link',
 			url        => sub { _appMenuPlay( $i, $lib, @_ ); },
 			# Tells the client what to do once url resolves, instead of
@@ -334,7 +334,7 @@ sub _appMenu {
 
 	push @items, {
 		name       => string('PLUGIN_BLISSDISCOVERY_REGENERATE'),
-		icon       => 'plugins/BlissDiscovery/html/images/icon.png',
+		icon       => 'MTL_icon_auto_awesome',
 		type       => 'link',
 		url        => \&_appMenuRefresh,
 		nextWindow => 'refresh',

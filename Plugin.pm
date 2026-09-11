@@ -114,7 +114,7 @@ sub _registerWithMaterial {
 		subtitle    => 'PLUGIN_BLISSDISCOVERY_HOME_SUBTITLE',
 		icon        => 'MTL_icon_auto_awesome',
 		needsPlayer => $needsPlayer,
-		count       => MAX_TILES,
+		count       => MAX_TILES + 1,
 		handler     => \&_homeExtraHandler,
 	});
 
@@ -131,6 +131,17 @@ sub _homeExtraHandler {
 	my $tiles = _tilesFor($lib);
 
 	my @items;
+
+	push @items, {
+		text      => string('PLUGIN_BLISSDISCOVERY_REGENERATE'),
+		'icon-id' => 'MTL_icon_refresh',
+		actions   => {
+			go => {
+				cmd => [ 'blissdiscovery', 'refresh' ],
+			},
+		},
+	};
+
 	my $idx = 0;
 
 	for my $tile (@$tiles) {

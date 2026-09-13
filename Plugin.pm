@@ -239,11 +239,11 @@ sub _homeExtraHandler {
 	my $idx = 0;
 
 	for my $tile ( @$tiles[ 0 .. $shown - 1 ] ) {
-		my $subtitle = $tile->{artist} || '';
-		$subtitle .= ( $subtitle ? " - " : '' ) . $tile->{genre} if $tile->{genre};
+		my $subtitle = $tile->{title} || '';
+		$subtitle .= ( $subtitle ? " - " : '' ) . $tile->{artist} if $tile->{artist};
 
 		push @items, {
-			text      => $tile->{title} . ( $subtitle ? "\n$subtitle" : '' ),
+			text      => ( $tile->{genre} || '' ) . ( $subtitle ? "\n$subtitle" : '' ),
 			'icon-id' => $tile->{coverid} ? "music/$tile->{coverid}/cover.jpg" : 'html/images/cover.png',
 			actions   => {
 				go => {
@@ -619,6 +619,8 @@ sub _pickTracks {
 		last if @picked >= $n;
 		next if $exclude->{ $bucket->{key} };
 
+		main::INFOLOG && _logIfSmallBucket( $bucket, $lib );
+
 		my ($track, $genreId) = _randomTrack( $bucket->{genreids}, $lib );
 		next unless $track;
 		next if $skip->{ $track->id };
@@ -774,6 +776,36 @@ sub _randomTrack {
 
 	my ($track) = Slim::Schema->find( 'Track', $id );
 	return ( $track, $genreId );
+}
+
+# Debug aid: a bucket backed by very few tracks trends toward showing the
+# same one(s) repeatedly across refreshes; log its full pool when that's the
+# likely explanation.
+sub _logIfSmallBucket {
+	my ($bucket, $lib) = @_;
+	my $dbh = Slim::Schema->dbh;
+
+	my @joins = ( "JOIN genre_track gt ON gt.track = t.id" );
+	my @where = ( "t.audio = 1", "t.remote = 0", "t.url LIKE 'file:%'",
+		"gt.genre IN (" . join( ',', ('?') x @{ $bucket->{genreids} } ) . ")" );
+	my @bind  = @{ $bucket->{genreids} };
+
+	if ( $lib ne '' ) {
+		push @joins, "JOIN library_track lt ON lt.track = t.id";
+		push @where, "lt.library = ?";
+		push @bind,  $lib;
+	}
+
+	my $sql = "SELECT DISTINCT t.id, t.title FROM tracks t " . join( ' ', @joins ) . " WHERE " . join( ' AND ', @where );
+	my $tracks = $dbh->selectall_arrayref( $sql, undef, @bind ) || [];
+
+	return if @$tracks >= 10;
+
+	my @genreNames = map { my $g = Slim::Schema->find( 'Genre', $_ ); $g ? $g->name : $_ } @{ $bucket->{genreids} };
+
+	$log->info( sprintf( "Bucket '%s' (genre(s): %s) only has %d track(s): %s",
+		$bucket->{key}, join( ', ', @genreNames ), scalar @$tracks,
+		join( ', ', map { sprintf( "'%s' (id %d)", $_->[1], $_->[0] ) } @$tracks ) ) );
 }
 
 sub _tileFromTrack {

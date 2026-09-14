@@ -656,15 +656,15 @@ sub _buckets {
 
 	if ( ( $prefs->get('genreSource') || 'lms' ) eq 'bliss' ) {
 		my $groups = _blissGenreGroups();
+		my @usable = grep { @{ $groups->[$_]->{genreids} } } 0 .. $#$groups;
 
-		if ( @$groups ) {
+		if ( @usable ) {
 			return List::Util::shuffle(
-				map { { key => "b$_", genreids => $groups->[$_]->{genreids} } }
-				grep { @{ $groups->[$_]->{genreids} } } 0 .. $#$groups
+				map { { key => "b$_", genreids => $groups->[$_]->{genreids} } } @usable
 			);
 		}
 
-		$log->warn('Bliss Mixer has no genre groups defined - using LMS genres instead');
+		$log->warn('Bliss Mixer has no usable genre groups (none matched a library genre) - using LMS genres instead');
 	}
 
 	my $sql = $lib ne ''

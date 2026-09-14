@@ -96,3 +96,27 @@ PLUGIN_BLISSDISCOVERY_LIBRARY_MATERIAL
 
 PLUGIN_BLISSDISCOVERY_LIBRARY_PLAYER
 	EN	Player's library view
+
+PLUGIN_BLISSDISCOVERY_FAVORITE_GENRES
+	EN	Favorite genres
+
+PLUGIN_BLISSDISCOVERY_FAVORITE_GENRES_DESC
+	EN	One genre name per line. These genres always get a tile, before the rest are picked at random - as many as fit within "Number of tiles". Also editable from a tile's context menu.
+
+PLUGIN_BLISSDISCOVERY_EXCLUDED_GENRES
+	EN	Excluded genres
+
+PLUGIN_BLISSDISCOVERY_EXCLUDED_GENRES_DESC
+	EN	One genre name per line. These genres are never used for tiles. Also editable from a tile's context menu.
+
+PLUGIN_BLISSDISCOVERY_FAVORITE_GENRE
+	EN	Add "%s" to favorite genres
+
+PLUGIN_BLISSDISCOVERY_UNFAVORITE_GENRE
+	EN	Remove "%s" from favorite genres
+
+PLUGIN_BLISSDISCOVERY_EXCLUDE_GENRE
+	EN	Exclude "%s" from tiles
+
+PLUGIN_BLISSDISCOVERY_UNEXCLUDE_GENRE
+	EN	Stop excluding "%s"

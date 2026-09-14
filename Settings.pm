@@ -18,7 +18,7 @@ sub page {
 }
 
 sub prefs {
-	return ( $prefs, qw(numTiles mixCount dstm refreshAfterPlay refreshHours library genreSource) );
+	return ( $prefs, qw(numTiles mixCount dstm refreshAfterPlay refreshHours library genreSource favoriteGenres excludedGenres) );
 }
 
 sub handler {

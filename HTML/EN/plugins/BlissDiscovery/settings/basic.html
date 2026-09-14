@@ -28,6 +28,14 @@
 		</select>
 	[% END %]
 
+	[% WRAPPER setting title="PLUGIN_BLISSDISCOVERY_FAVORITE_GENRES" desc="PLUGIN_BLISSDISCOVERY_FAVORITE_GENRES_DESC" %]
+		<textarea class="stdedit" name="pref_favoriteGenres" id="pref_favoriteGenres" rows="4" cols="40">[% prefs.pref_favoriteGenres | html %]</textarea>
+	[% END %]
+
+	[% WRAPPER setting title="PLUGIN_BLISSDISCOVERY_EXCLUDED_GENRES" desc="PLUGIN_BLISSDISCOVERY_EXCLUDED_GENRES_DESC" %]
+		<textarea class="stdedit" name="pref_excludedGenres" id="pref_excludedGenres" rows="4" cols="40">[% prefs.pref_excludedGenres | html %]</textarea>
+	[% END %]
+
 	[% WRAPPER setting title="PLUGIN_BLISSDISCOVERY_DSTM" desc="PLUGIN_BLISSDISCOVERY_DSTM_DESC" %]
 		<input type="checkbox" name="pref_dstm" id="pref_dstm" value="1" [% IF prefs.pref_dstm %]checked="checked"[% END %]>
 	[% END %]

@@ -60,12 +60,18 @@ Server Settings → Plugins → Bliss Discovery:
 | Mix length | 20 | Tracks in the generated mix (1–50) |
 | Genres from | LMS genres | What "one genre per tile" means: a different **Lyrion Music Server genre**, or a different **Bliss Mixer genre group** (Bliss Mixer settings → Genre groups). Group names are matched like Bliss does — case-insensitive globs (`* Rock`) — and with Bliss's *Use track genre* on, every ungrouped genre counts as its own group. Falls back to LMS genres if no groups are defined |
 | Restrict to library | All music | Pick tiles and mix tracks only from a virtual library. Choose a specific library, **Library selected in Material Skin** to follow Material's own **Change Library** button, or **Player's library view** to follow each player's own library setting (LMS Settings → Player → Library View); in the latter two modes each browser / player gets its own tile set |
+| Favorite genres | (none) | One genre name per line. These always get a tile (as many as fit within "Number of tiles") before the rest are picked at random |
+| Excluded genres | (none) | One genre name per line. These genres are never used for tiles |
 | Enable Don't Stop The Music | off | Also switch the player's DSTM to Bliss Mixer when a tile is tapped |
 | Replace tile after playing | on | The tapped tile is swapped for a song from a genre not currently shown |
 | Refresh all tiles every (hours) | 24 | Periodic re-pick of all tiles; 0 disables. Tiles also refresh after every rescan |
 | Refresh tiles now | — | Button to re-pick immediately |
 
 Tile changes are pushed to Material live (no page reload needed).
+
+Each tile also has a context menu (the "⋮" that Material shows on a tile) with
+**Add/Remove from favorite genres** and **Exclude/Un-exclude this genre**,
+which update the same two settings and re-pick tiles immediately.
 
 ## How it works
 
@@ -74,7 +80,9 @@ Tile changes are pushed to Material live (no page reload needed).
   local track per genre/group. Bliss's groups are read from the Bliss Mixer
   plugin's `genre_groups` preference and resolved to LMS genre ids with the
   same rules the mixer uses (case-insensitive globs, ungrouped genres as
-  singleton groups when *Use track genre* is on).
+  singleton groups when *Use track genre* is on). Favorite genres are given a
+  tile first, before the rest are picked at random; excluded genres are never
+  used, in either mode.
 * It registers a home-screen section with Material via
   `Plugins::MaterialSkin::Plugin->registerHomeExtra`. Material asks for the
   items when it draws the home screen; each item carries the track's cover
@@ -96,9 +104,11 @@ Tile changes are pushed to Material live (no page reload needed).
 ## CLI
 
 ```
-blissdiscovery playlist play tile:<n>   # start a Bliss mix from tile n (needs player)
-blissdiscovery refresh                  # re-pick all tiles
-blissdiscovery list                     # show current tiles
+blissdiscovery playlist play tile:<n>          # start a Bliss mix from tile n (needs player)
+blissdiscovery refresh                         # re-pick all tiles
+blissdiscovery list                            # show current tiles
+blissdiscovery more tile:<n>                   # context menu for tile n's genre
+blissdiscovery genre toggle list:<l> genre:<g> # toggle genre g in list l ('favorite' or 'excluded')
 ```
 
 ## Library restriction

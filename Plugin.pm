@@ -78,6 +78,8 @@ sub initPlugin {
 		refreshHours     => 24,
 		library          => '',     # '' = all music, 'material' = Material Skin's Change Library, 'player' = player's library view, else a virtual library id
 		genreSource      => 'lms',  # 'lms' = one tile per LMS genre, 'bliss' = one tile per Bliss Mixer genre group
+		favoriteGenres   => '',     # newline-separated genre names, always given a tile when possible
+		excludedGenres   => '',     # newline-separated genre names, never used for tiles
 	});
 
 	$prefs->setValidate({ validator => 'intlimit', low => 1, high => MAX_TILES }, 'numTiles');
@@ -86,6 +88,8 @@ sub initPlugin {
 
 	$prefs->setChange(sub { refreshTiles(); },   'numTiles');
 	$prefs->setChange(sub { refreshTiles(); },   'genreSource');
+	$prefs->setChange(sub { refreshTiles(); },   'favoriteGenres');
+	$prefs->setChange(sub { refreshTiles(); },   'excludedGenres');
 	$prefs->setChange(sub { $registeredWithMaterial = 0; refreshTiles(); }, 'library');
 	$prefs->setChange(sub { _scheduleTimer(); }, 'refreshHours');
 
@@ -95,12 +99,16 @@ sub initPlugin {
 	}
 
 	# CLI
-	#   blissdiscovery playlist play tile:<n>   - start a Bliss mix from tile n (needs player)
-	#   blissdiscovery refresh                  - re-pick all tiles
-	#   blissdiscovery list                     - show current tiles
+	#   blissdiscovery playlist play tile:<n>          - start a Bliss mix from tile n (needs player)
+	#   blissdiscovery refresh                         - re-pick all tiles
+	#   blissdiscovery list                             - show current tiles
+	#   blissdiscovery more tile:<n>                    - context menu for tile n (favorite/exclude its genre)
+	#   blissdiscovery genre toggle list:<l> genre:<g>  - toggle genre g in list l ('favorite' or 'excluded')
 	Slim::Control::Request::addDispatch(['blissdiscovery', 'playlist', 'play'], [1, 0, 1, \&_cliPlay]);
 	Slim::Control::Request::addDispatch(['blissdiscovery', 'refresh'],          [0, 0, 0, \&_cliRefresh]);
 	Slim::Control::Request::addDispatch(['blissdiscovery', 'list'],             [0, 1, 0, \&_cliList]);
+	Slim::Control::Request::addDispatch(['blissdiscovery', 'more'],             [0, 1, 1, \&_cliMore]);
+	Slim::Control::Request::addDispatch(['blissdiscovery', 'genre', 'toggle'],  [0, 0, 1, \&_cliGenreToggle]);
 
 	# Re-pick tiles after a library rescan
 	Slim::Control::Request::subscribe(\&_onRescanDone, [['rescan'], ['done']]);
@@ -250,6 +258,11 @@ sub _homeExtraHandler {
 					cmd    => [ 'blissdiscovery', 'playlist', 'play' ],
 					params => { tile => $idx, ( $lib ne '' ? ( lib => $lib ) : () ) },
 				},
+				# Only tiles with a genre have anything to offer in the context menu
+				( $tile->{genre} ? ( more => {
+					cmd    => [ 'blissdiscovery', 'more' ],
+					params => { tile => $idx, ( $lib ne '' ? ( lib => $lib ) : () ) },
+				} ) : () ),
 			},
 		};
 		$idx++;
@@ -615,7 +628,10 @@ sub _pickTracks {
 
 	my @picked;
 
-	for my $bucket ( _buckets($lib) ) {
+	# Favorite genres are tried first, so they get priority for the available
+	# slots. Favorite bucket keys match the per-genre keys _buckets() uses in
+	# 'lms' mode, so the same genre isn't picked again there.
+	for my $bucket ( _favoriteBuckets(), _buckets($lib) ) {
 		last if @picked >= $n;
 		next if $exclude->{ $bucket->{key} };
 
@@ -653,15 +669,19 @@ sub _pickTracks {
 sub _buckets {
 	my $lib = shift;
 	my $dbh = Slim::Schema->dbh;
+	my $exclIds = _excludedGenreIds();
 
 	if ( ( $prefs->get('genreSource') || 'lms' ) eq 'bliss' ) {
 		my $groups = _blissGenreGroups();
-		my @usable = grep { @{ $groups->[$_]->{genreids} } } 0 .. $#$groups;
+		my @usable;
+
+		for my $i ( 0 .. $#$groups ) {
+			my @ids = grep { !$exclIds->{$_} } @{ $groups->[$i]->{genreids} };
+			push @usable, { key => "b$i", genreids => \@ids } if @ids;
+		}
 
 		if ( @usable ) {
-			return List::Util::shuffle(
-				map { { key => "b$_", genreids => $groups->[$_]->{genreids} } } @usable
-			);
+			return List::Util::shuffle(@usable);
 		}
 
 		$log->warn('Bliss Mixer has no usable genre groups (none matched a library genre) - using LMS genres instead');
@@ -671,8 +691,58 @@ sub _buckets {
 		? "SELECT DISTINCT gt.genre FROM genre_track gt JOIN library_track lt ON lt.track = gt.track WHERE lt.library = ? ORDER BY RANDOM()"
 		: "SELECT id FROM genres ORDER BY RANDOM()";
 
-	return map { { key => "g$_->[0]", genreids => [ $_->[0] ] } }
+	return map  { { key => "g$_->[0]", genreids => [ $_->[0] ] } }
+		grep { !$exclIds->{ $_->[0] } }
 		@{ $dbh->selectall_arrayref( $sql, undef, ( $lib ne '' ? ($lib) : () ) ) || [] };
+}
+
+# Favorite genres, one bucket per genre id, tried before the normal buckets so
+# they always get a tile while slots remain. Uses the same key format as the
+# 'lms'-mode per-genre buckets in _buckets(), so a favorite isn't picked twice.
+sub _favoriteBuckets {
+	my $favIds  = _favoriteGenreIds();
+	my $exclIds = _excludedGenreIds();
+
+	return List::Util::shuffle(
+		map  { { key => "g$_", genreids => [$_] } }
+		grep { !$exclIds->{$_} }
+		keys %$favIds
+	);
+}
+
+# Genre names from a newline-separated pref, trimmed and with blanks removed
+sub _prefGenreNames {
+	my $pref = shift;
+	return grep { length } map { s/^\s+|\s+$//gr } split /\n/, ( $prefs->get($pref) || '' );
+}
+
+# Resolve genre names to LMS genre ids (case-insensitive), as a hashref of id => 1
+sub _genreIdsByName {
+	my @names = @_;
+	my %ids;
+	return \%ids unless @names;
+
+	my $dbh = Slim::Schema->dbh;
+	my $sth = $dbh->prepare_cached('SELECT id FROM genres WHERE LOWER(name) = LOWER(?)');
+
+	for my $name (@names) {
+		$sth->execute($name);
+		while ( my ($id) = $sth->fetchrow_array ) {
+			$ids{$id} = 1;
+		}
+	}
+	$sth->finish;
+
+	return \%ids;
+}
+
+sub _favoriteGenreIds { return _genreIdsByName( _prefGenreNames('favoriteGenres') ); }
+sub _excludedGenreIds { return _genreIdsByName( _prefGenreNames('excludedGenres') ); }
+
+# Whether $genre (a name) is in the given pref's list, case-insensitively
+sub _genreInList {
+	my ($pref, $genre) = @_;
+	return scalar grep { lc($_) eq lc($genre) } _prefGenreNames($pref);
 }
 
 # Bliss Mixer's genre groups (Settings > Bliss Mixer > Genre groups), resolved
@@ -872,6 +942,81 @@ sub _onRescanDone {
 sub _cliRefresh {
 	my $request = shift;
 	refreshTiles();
+	$request->setStatusDone();
+}
+
+# Context menu for a tile (Material Skin's per-item "more"/3-dot action):
+# offers to favorite or exclude the tile's genre. Returns a SlimBrowse-style
+# item_loop, same as a *info command, since 'more' is a plain drill-down.
+sub _cliMore {
+	my $request = shift;
+	my $idx     = $request->getParam('tile');
+	my $lib     = $request->getParam('lib');
+	$lib = _effectiveLibrary( $request->client ) unless defined $lib;
+	$lib = '' unless Slim::Music::VirtualLibraries->getRealId($lib);
+
+	my $tiles = _tilesFor($lib);
+	my $tile  = ( defined $idx && $idx =~ /^\d+$/ ) ? $tiles->[$idx] : undef;
+	my $genre = $tile ? $tile->{genre} : undef;
+
+	my @items;
+
+	if ($genre) {
+		my $isFav  = _genreInList( 'favoriteGenres', $genre );
+		my $isExcl = _genreInList( 'excludedGenres', $genre );
+
+		push @items, {
+			text       => sprintf( string( $isFav ? 'PLUGIN_BLISSDISCOVERY_UNFAVORITE_GENRE' : 'PLUGIN_BLISSDISCOVERY_FAVORITE_GENRE' ), $genre ),
+			# Pops back out of this context menu once the toggle runs, rather
+			# than leaving the client sitting on this (now stale) menu.
+			nextWindow => 'parent',
+			actions    => { go => { cmd => [ 'blissdiscovery', 'genre', 'toggle' ], params => { list => 'favorite', genre => $genre } } },
+		};
+		push @items, {
+			text       => sprintf( string( $isExcl ? 'PLUGIN_BLISSDISCOVERY_UNEXCLUDE_GENRE' : 'PLUGIN_BLISSDISCOVERY_EXCLUDE_GENRE' ), $genre ),
+			nextWindow => 'parent',
+			actions    => { go => { cmd => [ 'blissdiscovery', 'genre', 'toggle' ], params => { list => 'excluded', genre => $genre } } },
+		};
+	}
+
+	my $i = 0;
+	$request->setResultLoopHash( 'item_loop', $i++, $_ ) for @items;
+	$request->addResult( 'count',  scalar @items );
+	$request->addResult( 'offset', 0 );
+	$request->setStatusDone();
+}
+
+# Toggle a genre in the favorite or excluded list. Adding to one removes it
+# from the other, since a genre can't usefully be both.
+sub _cliGenreToggle {
+	my $request = shift;
+	my $list    = $request->getParam('list') || '';
+	my $genre   = $request->getParam('genre');
+
+	if ( !$genre || ( $list ne 'favorite' && $list ne 'excluded' ) ) {
+		$request->setStatusBadParams();
+		return;
+	}
+
+	my $pref  = $list eq 'favorite' ? 'favoriteGenres' : 'excludedGenres';
+	my $other = $list eq 'favorite' ? 'excludedGenres' : 'favoriteGenres';
+
+	my @names = _prefGenreNames($pref);
+
+	if ( grep { lc($_) eq lc($genre) } @names ) {
+		@names = grep { lc($_) ne lc($genre) } @names;
+	}
+	else {
+		push @names, $genre;
+
+		my @otherNames = _prefGenreNames($other);
+		if ( grep { lc($_) eq lc($genre) } @otherNames ) {
+			$prefs->set( $other, join( "\n", grep { lc($_) ne lc($genre) } @otherNames ) );
+		}
+	}
+
+	$prefs->set( $pref, join( "\n", @names ) );
+
 	$request->setStatusDone();
 }
 
